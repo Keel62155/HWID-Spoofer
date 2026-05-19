@@ -17,7 +17,7 @@ from pathlib import Path
 BACKUP_FILE = "hwid_backup.json"
 
 
-def is_admin():
+def hwid_is_admin():
     try:
         return os.getuid() == 0
     except AttributeError:
@@ -26,7 +26,7 @@ def is_admin():
 
 def run_as_admin():
     """Restart the script with admin privileges"""
-    if is_admin():
+    if hwid_is_admin():
         return True
 
     print("[*] Requesting Administrator privileges...")
@@ -410,9 +410,9 @@ def spoof_values():
     print(f"[!] Backup saved to: {os.path.abspath(BACKUP_FILE)}")
 
 
-def main():
+def show_hwid_menu():
     # Check for admin and auto-elevate if needed
-    if not is_admin():
+    if not hwid_is_admin():
         run_as_admin()
         # If we get here, elevation failed
         sys.exit(1)
@@ -421,13 +421,13 @@ def main():
 
     while True:
         print("\n" + "=" * 40)
-        print("HWID SPOOFER & RESTORE TOOL")
+        print("HWID TOOL - Registry Identifiers")
         print("=" * 40)
         print("1. Check current HWID values")
         print("2. Spoof HWID")
         print("3. Revert to original values")
         print("4. View backup file contents")
-        print("5. Exit")
+        print("5. Back to main menu")
         print("=" * 40)
 
         choice = input("Select option (1-5): ").strip()
@@ -435,15 +435,15 @@ def main():
         if choice == "1":
             current = get_current_values()
             display_current_values(current)
-            input("Press Enter to continue...")
+            pause_for_navigation()
 
         elif choice == "2":
             spoof_values()
-            input("Press Enter to continue...")
+            pause_for_navigation()
 
         elif choice == "3":
             revert_changes()
-            input("Press Enter to continue...")
+            pause_for_navigation()
 
         elif choice == "4":
             backup = load_backup()
@@ -452,17 +452,16 @@ def main():
                 display_current_values(backup)
             else:
                 print("[-] No backup file found.")
-            input("Press Enter to continue...")
+            pause_for_navigation()
 
         elif choice == "5":
-            print("[*] Exiting...")
+            print("[*] Returning to main menu...")
             break
         else:
             print("[-] Invalid option")
 
 
-if __name__ == "__main__":
-    main()
+# Unified launcher is at the bottom of this file.
 
 
 NETWORK_CLASS_GUID = r"{4d36e972-e325-11ce-bfc1-08002be10318}"
@@ -1253,16 +1252,16 @@ def open_log_file():
         print("Could not open the log file automatically.")
 
 
-def show_menu():
+def show_mac_menu():
     while True:
         print()
-        print("MAC Address Tool")
+        print("MAC ADDRESS TOOL - Wi-Fi / Ethernet")
         print("1. Check MAC Addresses")
         print("2. Randomize MAC Addresses")
         print("3. Revert MAC Addresses")
         print("4. Show log file path")
         print("5. Open log file")
-        print("6. Exit")
+        print("6. Back to main menu")
         print()
 
         choice = input("Choose an option: ").strip()
@@ -1280,14 +1279,14 @@ def show_menu():
         elif choice == "5":
             open_log_file()
         elif choice == "6":
-            LOGGER.info("User exited from menu.")
+            LOGGER.info("User returned to main menu from MAC menu.")
             break
         else:
             print("Invalid option.")
             LOGGER.warning(f"Invalid menu option: {choice}")
 
 
-def main():
+def run_mac_cli_or_menu():
     if sys.platform != "win32":
         LOGGER.error("This script was run on a non-Windows platform.")
         print("This script is for Windows only.")
@@ -1344,15 +1343,100 @@ def main():
     elif args.revert:
         revert_all_supported_adapters()
     else:
-        show_menu()
+        show_mac_menu()
+
+
+
+def pause_for_navigation():
+    input("Press Enter to return to the menu...")
+
+
+def clear_navigation_screen():
+    try:
+        os.system("cls" if os.name == "nt" else "clear")
+    except Exception:
+        print("\n" * 3)
+
+
+def print_navigation_header(title: str):
+    print()
+    print("=" * 64)
+    print(title.center(64))
+    print("=" * 64)
+
+
+def show_status_overview():
+    print_navigation_header("CURRENT STATUS OVERVIEW")
+    print("HWID / registry values:")
+    display_current_values(get_current_values())
+
+    print("Wi-Fi / Ethernet MAC addresses:")
+    try:
+        print_current_target_macs()
+    except Exception as error:
+        LOGGER.error("Failed while showing MAC status overview.")
+        LOGGER.error(str(error))
+        print(f"Could not load MAC address status: {error}")
+
+    pause_for_navigation()
+
+
+def show_main_menu():
+    if sys.platform != "win32":
+        print("This script is for Windows only.")
+        sys.exit(1)
+
+    ensure_admin_or_relaunch()
+
+    while True:
+        clear_navigation_screen()
+        print_navigation_header("COMBINED HWID + MAC TOOL")
+        print("1. HWID / registry identifier tools")
+        print("2. Wi-Fi / Ethernet MAC tools")
+        print("3. Current status overview")
+        print("4. Show log file path")
+        print("5. Open log file")
+        print("6. Exit")
+        print("=" * 64)
+
+        choice = input("Choose an option (1-6): ").strip().lower()
+
+        LOGGER.info(f"Main navigation choice selected: {choice}")
+
+        if choice in {"1", "hwid", "h"}:
+            show_hwid_menu()
+        elif choice in {"2", "mac", "m"}:
+            show_mac_menu()
+        elif choice in {"3", "status", "s"}:
+            show_status_overview()
+        elif choice in {"4", "log", "l"}:
+            print()
+            print(f"Log file: {LOG_FILE}")
+            pause_for_navigation()
+        elif choice in {"5", "open-log", "open"}:
+            open_log_file()
+            pause_for_navigation()
+        elif choice in {"6", "exit", "quit", "q"}:
+            LOGGER.info("User exited from main navigation menu.")
+            print("Exiting...")
+            break
+        else:
+            print("Invalid option.")
+            pause_for_navigation()
 
 
 if __name__ == "__main__":
     setup_logging()
 
     try:
-        main()
-        LOGGER.info("MAC Address Tool finished normally.")
+        # Keep existing MAC command-line shortcuts working.
+        mac_cli_flags = {"--check", "--randomize", "--revert", "--log", "--open-log"}
+        if any(arg in mac_cli_flags for arg in sys.argv[1:]):
+            run_mac_cli_or_menu()
+        else:
+            show_main_menu()
+
+        LOGGER.info("Combined HWID + MAC Tool finished normally.")
     except KeyboardInterrupt:
         LOGGER.warning("User interrupted the script with Ctrl+C.")
         print()

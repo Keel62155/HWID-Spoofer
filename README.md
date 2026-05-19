@@ -73,4 +73,4 @@ It will not work on Linux or macOS.
 4. Run the script:
 
 ```bash
-python Test_BetterNavigation.py
+python Spoofer.py
